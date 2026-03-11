@@ -3,15 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>대학장구서 챌린지 - 하트 시스템</title>
+<title>대학장구서 챌린지 - 가이드 시스템</title>
 <style>
   body { margin: 0; display: flex; flex-direction: column; align-items: center; background: #2c3e50; color: white; font-family: sans-serif; overflow: hidden; height: 100vh; }
-  #header { margin-top: 20px; text-align: center; z-index: 5; }
+  #header { margin-top: 20px; text-align: center; z-index: 10; }
   #heart-container { font-size: 30px; margin-bottom: 10px; color: #e74c3c; letter-spacing: 5px; }
-  #card-container { position: relative; width: 300px; height: 400px; margin-top: 10px; }
+  
+  /* 배경 가이드 표시 */
+  .guide-layer { position: fixed; top: 50%; transform: translateY(-50%); font-size: 80px; font-weight: bold; opacity: 0.2; pointer-events: none; z-index: 1; }
+  #left-guide { left: 20px; color: #e74c3c; } /* 왼쪽 X */
+  #right-guide { right: 20px; color: #3498db; } /* 오른쪽 O */
+
+  #card-container { position: relative; width: 300px; height: 400px; margin-top: 10px; z-index: 5; }
   .card { position: absolute; width: 100%; height: 100%; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: grab; transition: transform 0.4s; touch-action: none; color: #333; }
   .hanja { font-size: 100px; margin: 0; pointer-events: none; }
   .meaning { font-size: 28px; color: #555; pointer-events: none; text-align: center; padding: 0 10px; }
+  
   #timer-container { width: 300px; height: 10px; background: #ecf0f1; border-radius: 5px; margin-top: 10px; overflow: hidden; }
   #timer-bar { width: 100%; height: 100%; background: #2ecc71; transition: width 0.1s linear; }
   #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
@@ -20,6 +27,9 @@
 </style>
 </head>
 <body>
+  <div id="left-guide" class="guide-layer">X</div>
+  <div id="right-guide" class="guide-layer">O</div>
+
   <div id="overlay">
     <div class="level-text" id="overlay-title">LEVEL UP!</div>
     <div id="overlay-msg"></div>
@@ -35,11 +45,13 @@
   <div id="card-container"></div>
 
   <div style="margin-top: 20px; text-align: center;">
-    <div>정답: <span id="curr">0</span> / 10</div>
+    <div style="font-size: 14px; color: #bdc3c7; margin-bottom: 5px;">← 오답(X) | 정답(O) →</div>
+    <div>단계 정답: <span id="curr">0</span> / 10</div>
     <div style="font-size: 14px; color: #bdc3c7;">누적 점수: <span id="total">0</span></div>
   </div>
 
 <script>
+  // 전체 데이터셋 (기존과 동일)
   const allData = [
     ["大","클 대","대개 대"], ["學","배울 학","가르칠 교"], ["章","글 장","장막 장"],
     ["句","글귀 구","굽을 곡"], ["序","차례 서","펼 서"], ["之","갈 지","이것 차"],
@@ -72,7 +84,7 @@
     ["三","석 삼","석 삼"], ["代","대신할 대","사람 인"], ["隆","높을 륭","언덕 부"],
     ["寖","점점 침","물 수"], ["備","갖출 비","사람 인"], ["後","뒤 후","임금 후"],
     ["王","임금 왕","임금 왕"], ["宮","집 궁","갓 머리"], ["國","나라 국","에운담 몸"],
-    ["都","도읍 도","고을 읍"], ["及","미칠 급","또 우"], ["閭","마을 려","문 문"],
+    ["도","도읍 도","고을 읍"], ["及","미칠 급","또 우"], ["閭","마을 려","문 문"],
     ["巷","마을 항","뱀 사"], ["歲","해 세","그칠 지"], ["公","공변될 공","여덟 팔"],
     ["下","아래 하","한 일"], ["至","이를 지","이를 지"], ["庶","백성 서","엄호 밑"],
     ["子","아들 자","아들 자"], ["弟","아우 제","활 궁"], ["入","들 입","사람 인"],
@@ -109,7 +121,7 @@
     clearInterval(timerInterval);
     timeLeft = 100;
     if (level === 1) { document.getElementById('timer-bar').style.width = '100%'; return; }
-    let speed = 0.4 + (level * 0.2);
+    let speed = 0.4 + (level * 0.1);
     timerInterval = setInterval(() => {
       timeLeft -= speed;
       document.getElementById('timer-bar').style.width = timeLeft + '%';
@@ -139,9 +151,20 @@
     const move = (e) => {
       let x = (e.type === 'mousemove' ? e.clientX : e.touches[0].clientX) - startX;
       card.style.transform = `translateX(${x}px) rotate(${x/10}deg)`;
+      
+      // 밀고 있는 방향에 따라 배경 기호 강조
+      document.getElementById('left-guide').style.opacity = x < -50 ? "0.8" : "0.2";
+      document.getElementById('right-guide').style.opacity = x > 50 ? "0.8" : "0.2";
     };
+
     const end = (e) => {
-      let x = (e.type === 'mouseup' ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : 0)) - startX;
+      let endX = (e.type === 'mouseup' ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : 0));
+      let x = endX - startX;
+      
+      // 기호 투명도 초기화
+      document.getElementById('left-guide').style.opacity = "0.2";
+      document.getElementById('right-guide').style.opacity = "0.2";
+
       if (Math.abs(x) > 100) {
         if ((x > 0 && item.c) || (x < 0 && !item.c)) {
           currentScore++; totalScore++;
@@ -150,14 +173,17 @@
           card.remove(); startTimer(); render();
         } else { loseLife(); }
       } else { card.style.transform = ''; }
+      
       window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end);
       window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end);
     };
+
     const start = (e) => {
       startX = (e.type === 'mousedown' ? e.clientX : e.touches[0].clientX);
       window.addEventListener(e.type === 'mousedown' ? 'mousemove' : 'touchmove', move);
       window.addEventListener(e.type === 'mousedown' ? 'mouseup' : 'touchend', end);
     };
+
     card.addEventListener('mousedown', start); card.addEventListener('touchstart', start);
     container.appendChild(card);
     startTimer();
