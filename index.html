@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대학장구서 챌린지 - 스와이프 한자 학습</title>
+<style>
+  body { margin: 0; display: flex; flex-direction: column; align-items: center; background: #2c3e50; color: white; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; overflow: hidden; height: 100vh; }
+  #card-container { position: relative; width: 300px; height: 400px; margin-top: 30px; }
+  .card { position: absolute; width: 100%; height: 100%; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: grab; transition: transform 0.4s; touch-action: none; color: #333; }
+  .hanja { font-size: 100px; margin: 0; pointer-events: none; }
+  .meaning { font-size: 28px; color: #555; pointer-events: none; text-align: center; padding: 0 10px; }
+  #info-panel { margin-top: 20px; text-align: center; z-index: 5; }
+  #timer-container { width: 300px; height: 10px; background: #ecf0f1; border-radius: 5px; margin-top: 10px; overflow: hidden; }
+  #timer-bar { width: 100%; height: 100%; background: #e74c3c; transition: width 0.1s linear; }
+  #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+  button { padding: 15px 40px; font-size: 20px; cursor: pointer; border-radius: 30px; border: none; background: #27ae60; color: white; font-weight: bold; margin-top: 20px; }
+  .level-text { font-size: 40px; color: #f1c40f; margin-bottom: 10px; }
+  #status-bar { margin-top: 20px; font-size: 16px; color: #bdc3c7; }
+</style>
+</head>
+<body>
+  <div id="overlay">
+    <div class="level-text" id="overlay-title">LEVEL UP!</div>
+    <div id="overlay-msg">다음 단계는 더 빨라집니다.</div>
+    <button onclick="startNextLevel()">준비되었습니다!</button>
+  </div>
+
+  <div id="info-panel">
+    <div style="font-size: 24px; font-weight: bold;">大學章구서 챌린지</div>
+    <div style="color: #bdc3c7; margin-top: 5px;">단계: <span id="lvl">1</span></div>
+    <div id="timer-container"><div id="timer-bar"></div></div>
+  </div>
+
+  <div id="card-container"></div>
+
+  <div id="status-bar">
+    <div>현재 단계 정답: <span id="curr">0</span> / 10</div>
+    <div style="font-size: 14px; margin-top: 5px;">누적 점수: <span id="total">0</span></div>
+  </div>
+
+<script>
+  // 교수님의 엑셀 데이터를 모두 반영한 데이터셋입니다.
+  const allData = [
+    ["大","클 대","대개 대"], ["學","배울 학","가르칠 교"], ["章","글 장","장막 장"],
+    ["句","글귀 구","굽을 곡"], ["序","차례 서","펼 서"], ["之","갈 지","이것 차"],
+    ["書","책 서","글자 자"], ["古","옛 고","시어머니 고"], ["所","바 소","장소 장"],
+    ["以","써 이","이미 이"], ["敎","가르칠 교","본받을 효"], ["人","사람 인","들 입"],
+    ["法","법 법","물 수"], ["也","어조사 야","이끌 이"], ["蓋","대개 개","덮개 개"],
+    ["自","스스로 자","흰 백"], ["天","하늘 천","남편 부"], ["降","내릴 강","항복할 항"],
+    ["生","날 생","소 우"], ["民","백성 민","잠잘 면"], ["則","곧 즉","법칙 칙"],
+    ["旣","이미 기","즉시 즉"], ["莫","없을 막","저물 모"], ["不","아닐 불","아닐 부"],
+    ["與","줄 여","수레 거"], ["仁","어질 인","두 이"], ["義","옳을 의","양 양"],
+    ["禮","예도 례","귀신 신"], ["智","지혜 지","화살 시"], ["性","성품 성","마음 심"],
+    ["矣","어조사 의","화살 시"], ["然","그러할 연","불탈 연"], ["其","그 기","키 기"],
+    ["氣","기운 기","쌀 미"], ["質","바탕 질","조개 패"], ["稟","바탕 품","여쭐 품"],
+    ["或","혹시 혹","창 과"], ["能","능할 능","곰 웅"], ["齊","같을 제","가지런할 제"],
+    ["是","이 시","옳을 시"], ["皆","다 개","비교할 비"], ["有","있을 유","달 월"],
+    ["知","알지","화살 시"], ["全","온전할 전","임금 왕"], ["一","한 일","한 일"],
+    ["聰","총명할 총","귀 이"], ["明","밝을 명","날 일"], ["睿","밝을 예","눈 목"],
+    ["盡","다할 진","그릇 명"], ["者","놈 자","늙을 노"], ["出","날 출","뫼 산"],
+    ["於","어조사 어","어조사 호"], ["間","사이 간","문 문"], ["必","반드시 필","마음 심"],
+    ["命","목숨 명","입 구"], ["爲","할 위","원숭이 위"], ["億","억 억","사람 인"],
+    ["兆","조 조","어진사람 인"], ["君","임금 군","입 구"], ["師","스승 사","수건 건"],
+    ["使","하여금 사","사람 인"], ["治","다스릴 치","물 수"], ["復","회복할 복","다시 부"],
+    ["此","이 차","그칠 지"], ["伏","엎드릴 복","사람 인"], ["羲","복희 희","양 양"],
+    ["神","귀신 신","보일 시"], ["農","농사 농","별 진"], ["黃","누를 황","스물 입"],
+    ["帝","임금 제","수건 건"], ["堯","임금 요","흙 토"], ["舜","임금 순","저녁 석"],
+    ["繼","이을 계","실 사"], ["立","설 립","설 립"], ["極","다할 극","나무 목"],
+    ["而","말 이을 이","마디 촌"], ["司","맡을 사","입 구"], ["徒","무리 도","걸을 척"],
+    ["職","직분 직","귀 이"], ["典","법전 전","여덟 팔"], ["樂","풍류 악","나무 목"],
+    ["官","벼슬 관","갓 머리"], ["由","말미암을 유","밭 전"], ["設","베풀 설","말씀 언"],
+    ["三","석 삼","석 삼"], ["代","대신할 대","사람 인"], ["隆","높을 륭","언덕 부"],
+    ["寖","점점 침","물 수"], ["備","갖출 비","사람 인"], ["後","뒤 후","임금 후"],
+    ["王","임금 왕","임금 왕"], ["宮","집 궁","갓 머리"], ["國","나라 국","에운담 몸"],
+    ["都","도읍 도","고을 읍"], ["及","미칠 급","또 우"], ["閭","마을 려","문 문"],
+    ["巷","마을 항","뱀 사"], ["歲","해 세","그칠 지"], ["公","공변될 공","여덟 팔"],
+    ["下","아래 하","한 일"], ["至","이를 지","이를 지"], ["庶","백성 서","엄호 밑"],
+    ["子","아들 자","아들 자"], ["弟","아우 제","활 궁"], ["入","들 입","사람 인"],
+    ["小","적을 소","갈고리 궐"], ["灑","물 뿌릴 쇄","물 수"], ["掃","쓸 소","손 수"],
+    ["應","응할 응","마음 심"], ["對","대답할 대","마디 촌"], ["進","나아갈 진","갈 착"],
+    ["退","물러날 퇴","갈 착"], ["節","마디 절","대 죽"], ["射","쏠 사","몸 신"],
+    ["御","말 부릴 어","걸을 척"], ["數","셀 수","칠 복"], ["文","글월 문","글월 문"],
+    ["十","열 십","열 십"], ["五","다섯 오","다섯 오"], ["年","해 년","방패 간"],
+    ["元","으뜸 원","어진사람 인"], ["衆","무리 중","피 혈"], ["卿","벼슬 경","마디 촌"],
+    ["大","클 대","대개 대"], ["夫","남편 부","하늘 천"], ["士","선비 사","흙 토"], ["適","맏 적","갈 착"],
+    ["凡","무릇 범","안석 궤"], ["俊","준걸 준","사람 인"], ["秀","빼어날 수","벼 화"],
+    ["窮","다할 궁","구멍 혈"], ["理","이치 리","구슬 옥"], ["正","바를 정","그칠 지"],
+    ["心","마음 심","마음 심"], ["修","닦을 수","사람 인"], ["己","몸 기","몸 기"],
+    ["道","길 도","갈 착"], ["校","학 교","나무 목"]
+  ];
+
+  let level = 1;
+  let currentScore = 0;
+  let totalScore = 0;
+  let deck = [];
+  let timeLeft = 100;
+  let timerInterval;
+  let isGameOver = false;
+
+  function makeDeck() {
+    deck = [];
+    allData.forEach(d => {
+      deck.push({h: d[0], t: d[1], c: true});
+      deck.push({h: d[0], t: d[2], c: false});
+    });
+    deck.sort(() => Math.random() - 0.5);
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timeLeft = 100;
+    if (level === 1) {
+      document.getElementById('timer-bar').style.width = '100%';
+      return;
+    }
+    
+    let speed = 0.5 + (level * 0.2);
+    timerInterval = setInterval(() => {
+      timeLeft -= speed;
+      document.getElementById('timer-bar').style.width = timeLeft + '%';
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        gameOver();
+      }
+    }, 100);
+  }
+
+  function render() {
+    if (isGameOver) return;
+    if (currentScore >= 10) {
+      clearInterval(timerInterval);
+      showOverlay("단계 완료!", "다음 단계는 시간이 더 촉박합니다.");
+      return;
+    }
+    if (deck.length === 0) makeDeck();
+
+    const item = deck.pop();
+    const container = document.getElementById('card-container');
+    container.innerHTML = '';
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    let scale = Math.max(0.8, 1 - (level * 0.02));
+    card.style.transform = `scale(${scale})`;
+    card.innerHTML = `<p class="hanja">${item.h}</p><p class="meaning">${item.t}</p>`;
+    
+    let startX = 0;
+    const move = (e) => {
+      let x = (e.type === 'mousemove' ? e.clientX : e.touches[0].clientX) - startX;
+      card.style.transform = `scale(${scale}) translateX(${x}px) rotate(${x/10}deg)`;
+    };
+    
+    const end = (e) => {
+      let endX = (e.type === 'mouseup' ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : 0));
+      let x = endX - startX;
+      if (Math.abs(x) > 100) {
+        if ((x > 0 && item.c) || (x < 0 && !item.c)) {
+          currentScore++;
+          totalScore++;
+          document.getElementById('curr').innerText = currentScore;
+          document.getElementById('total').innerText = totalScore;
+          card.remove();
+          startTimer();
+          render();
+        } else {
+          gameOver();
+        }
+      } else {
+        card.style.transform = `scale(${scale})`;
+      }
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+    };
+
+    const start = (e) => {
+      startX = (e.type === 'mousedown' ? e.clientX : e.touches[0].clientX);
+      window.addEventListener(e.type === 'mousedown' ? 'mousemove' : 'touchmove', move);
+      window.addEventListener(e.type === 'mousedown' ? 'mouseup' : 'touchend', end);
+    };
+
+    card.addEventListener('mousedown', start);
+    card.addEventListener('touchstart', start);
+    container.appendChild(card);
+    startTimer();
+  }
+
+  function gameOver() {
+    isGameOver = true;
+    clearInterval(timerInterval);
+    showOverlay("아쉽습니다!", `최종 점수: ${totalScore}점`);
+    document.querySelector('#overlay button').innerText = "다시 도전하기";
+  }
+
+  function showOverlay(title, msg) {
+    document.getElementById('overlay-title').innerText = title;
+    document.getElementById('overlay-msg').innerText = msg;
+    document.getElementById('overlay').style.display = 'flex';
+  }
+
+  window.startNextLevel = function() {
+    if (isGameOver) {
+      totalScore = 0;
+      level = 1;
+      isGameOver = false;
+      document.querySelector('#overlay button').innerText = "준비되었습니다!";
+    } else {
+      level++;
+    }
+    currentScore = 0;
+    document.getElementById('lvl').innerText = level;
+    document.getElementById('curr').innerText = '0';
+    document.getElementById('total').innerText = totalScore;
+    document.getElementById('overlay').style.display = 'none';
+    makeDeck();
+    render();
+  };
+
+  makeDeck();
+  render();
+</script>
+</body>
+</html>
